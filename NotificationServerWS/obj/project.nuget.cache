@@ -1,8 +1,10 @@
 {
   "version": 2,
-  "dgSpecHash": "3YY1YYXGWqzsxO1GI/VWe9mMZmkTzLl61lwtTgO0BhyhZujPqBYF2fzvcmn79T8/JzBhdBtwkVeSV19+jadVIQ==",
+  "dgSpecHash": "3hjozIyPYf3wwkIhB45D6rnjV1T+tiMjGlmRIG9tp93ik1mnrCVkWcgCH7YQD4elQvngjcYBjVVEb4nABRRMQg==",
   "success": true,
   "projectFilePath": "C:\\Users\\Выймова Елена\\Desktop\\Материалы для работы\\ПП\\GitHub Repositories\\Notification-Server-WS\\NotificationServerWS\\NotificationServerWS.csproj",
-  "expectedPackageFiles": [],
+  "expectedPackageFiles": [
+    "C:\\Users\\Выймова Елена\\.nuget\\packages\\microsoft.visualstudio.azure.containers.tools.targets\\1.10.14\\microsoft.visualstudio.azure.containers.tools.targets.1.10.14.nupkg.sha512"
+  ],
   "logs": []
 }

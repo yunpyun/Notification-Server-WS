@@ -65,14 +65,12 @@ namespace NotificationServerWS
                 {
                     // сообщение от клиента
                     string msg = Encoding.UTF8.GetString(new ArraySegment<byte>(buffer, 0, result.Count));
-                    Console.WriteLine($"client says: {msg}");
 
                     // передаем сообщение от сервера всем клиентам
-                    await webSocket.SendAsync(new ArraySegment<byte>(Encoding.UTF8.GetBytes($"Sever says: {DateTime.UtcNow:f}")), result.MessageType, result.EndOfMessage, System.Threading.CancellationToken.None);
+                    await webSocket.SendAsync(new ArraySegment<byte>(Encoding.UTF8.GetBytes("Response from server")), result.MessageType, result.EndOfMessage, System.Threading.CancellationToken.None);
 
                     // ожидание другого сообщения от клиента
                     result = await webSocket.ReceiveAsync(new ArraySegment<byte>(buffer), System.Threading.CancellationToken.None);
-                    //Console.ReadLine(result);
                 }
             }
             await webSocket.CloseAsync(result.CloseStatus.Value, result.CloseStatusDescription, System.Threading.CancellationToken.None);

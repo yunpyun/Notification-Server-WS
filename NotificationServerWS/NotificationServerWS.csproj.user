@@ -4,6 +4,7 @@
     <DebuggerFlavor>ProjectDebugger</DebuggerFlavor>
   </PropertyGroup>
   <PropertyGroup>
-    <ActiveDebugProfile>NotificationServerWS</ActiveDebugProfile>
+    <ActiveDebugProfile>Docker</ActiveDebugProfile>
+    <NameOfLastUsedPublishProfile>C:\Users\Выймова Елена\Desktop\Материалы для работы\ПП\GitHub Repositories\Notification-Server-WS\NotificationServerWS\Properties\PublishProfiles\registry.hub.docker.com_yunpyun.pubxml</NameOfLastUsedPublishProfile>
   </PropertyGroup>
 </Project>
