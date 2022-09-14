@@ -1,4 +1,4 @@
-using Microsoft.AspNetCore.Builder;
+п»їusing Microsoft.AspNetCore.Builder;
 using Microsoft.AspNetCore.Hosting;
 using Microsoft.AspNetCore.Http;
 using Microsoft.Extensions.DependencyInjection;
@@ -7,12 +7,19 @@ using System;
 using System.Threading.Tasks;
 using System.Net;
 using System.Net.WebSockets;
-using System.Text;
+using System.Collections.Generic;
+using System.Threading;
 
 namespace NotificationServerWS
 {
     public class Startup
     {
+        // РЎРїРёСЃРѕРє РІСЃРµС… РєР»РёРµРЅС‚РѕРІ
+        private static readonly List<WebSocket> Clients = new List<WebSocket>();
+
+        // Р‘Р»РѕРєРёСЂРѕРІРєР° РґР»СЏ РѕР±РµСЃРїРµС‡РµРЅРёСЏ РїРѕС‚РѕРєР°Р±РµР·РѕРїР°СЃРЅРѕСЃС‚Рё
+        private static readonly ReaderWriterLockSlim Locker = new ReaderWriterLockSlim();
+
         // This method gets called by the runtime. Use this method to add services to the container.
         // For more information on how to configure your application, visit https://go.microsoft.com/fwlink/?LinkID=398940
         public void ConfigureServices(IServiceCollection services)
@@ -33,10 +40,10 @@ namespace NotificationServerWS
             app.UseWebSockets(wsOptions);
             app.Use(async (context, next) =>
             {
-                // принять запрос только по пути /send
+                // РїСЂРёРЅСЏС‚СЊ Р·Р°РїСЂРѕСЃ С‚РѕР»СЊРєРѕ РїРѕ РїСѓС‚Рё /send
                 if (context.Request.Path == "/send")
                 {
-                    // если запрос является запросом веб сокета
+                    // РµСЃР»Рё Р·Р°РїСЂРѕСЃ СЏРІР»СЏРµС‚СЃСЏ Р·Р°РїСЂРѕСЃРѕРј РІРµР± СЃРѕРєРµС‚Р°
                     if (context.WebSockets.IsWebSocketRequest)
                     {
                         using (WebSocket webSocket = await context.WebSockets.AcceptWebSocketAsync())
@@ -54,26 +61,52 @@ namespace NotificationServerWS
 
         private async Task Send(HttpContext context, WebSocket webSocket)
         {
-            var buffer = new byte[1024 * 4];
+            // РґРѕР±Р°РІР»СЏРµРј РµРіРѕ РІ СЃРїРёСЃРѕРє РєР»РёРµРЅС‚РѕРІ
+            Locker.EnterWriteLock();
 
-            // получаем данные
-            WebSocketReceiveResult result = await webSocket.ReceiveAsync(new ArraySegment<byte>(buffer), System.Threading.CancellationToken.None);
-
-            if (result != null)
+            try
             {
-                while (!result.CloseStatus.HasValue)
+                Clients.Add(webSocket);
+            }
+            finally
+            {
+                Locker.ExitWriteLock();
+            }
+
+            while (true)
+            {
+                var buffer = new ArraySegment<byte>(new byte[1024]);
+
+                // РїРѕР»СѓС‡Р°РµРј РґР°РЅРЅС‹Рµ
+                WebSocketReceiveResult result = await webSocket.ReceiveAsync(buffer, System.Threading.CancellationToken.None);
+
+                // РїРµСЂРµРґР°С‘Рј СЃРѕРѕР±С‰РµРЅРёРµ РІСЃРµРј РєР»РёРµРЅС‚Р°Рј
+                for (int i = 0; i < Clients.Count; i++)
                 {
-                    // сообщение от клиента
-                    string msg = Encoding.UTF8.GetString(new ArraySegment<byte>(buffer, 0, result.Count));
+                    WebSocket client = Clients[i];
 
-                    // передаем сообщение от сервера всем клиентам
-                    await webSocket.SendAsync(new ArraySegment<byte>(Encoding.UTF8.GetBytes("Response from server")), result.MessageType, result.EndOfMessage, System.Threading.CancellationToken.None);
-
-                    // ожидание другого сообщения от клиента
-                    result = await webSocket.ReceiveAsync(new ArraySegment<byte>(buffer), System.Threading.CancellationToken.None);
+                    try
+                    {
+                        if (client.State == WebSocketState.Open)
+                        {
+                            await client.SendAsync(buffer, WebSocketMessageType.Text, true, CancellationToken.None);
+                        }
+                    }
+                    catch (ObjectDisposedException)
+                    {
+                        Locker.EnterWriteLock();
+                        try
+                        {
+                            Clients.Remove(client);
+                            i--;
+                        }
+                        finally
+                        {
+                            Locker.ExitWriteLock();
+                        }
+                    }
                 }
             }
-            await webSocket.CloseAsync(result.CloseStatus.Value, result.CloseStatusDescription, System.Threading.CancellationToken.None);
         }
     }
 }
