@@ -18,3 +18,5 @@ C:\Users\Выймова Елена\Desktop\Материалы для работ�
 C:\Users\Выймова Елена\Desktop\Материалы для работы\ПП\GitHub Repositories\Notification-Server-WS\NotificationServerWS\obj\Release\netcoreapp3.1\NotificationServerWS.dll
 C:\Users\Выймова Елена\Desktop\Материалы для работы\ПП\GitHub Repositories\Notification-Server-WS\NotificationServerWS\obj\Release\netcoreapp3.1\NotificationServerWS.pdb
 C:\Users\Выймова Елена\Desktop\Материалы для работы\ПП\GitHub Repositories\Notification-Server-WS\NotificationServerWS\obj\Release\netcoreapp3.1\NotificationServerWS.genruntimeconfig.cache
+C:\Users\Выймова Елена\Desktop\Материалы для работы\ПП\GitHub Repositories\Notification-Server-WS\NotificationServerWS\bin\Release\netcoreapp3.1\Newtonsoft.Json.dll
+C:\Users\Выймова Елена\Desktop\Материалы для работы\ПП\GitHub Repositories\Notification-Server-WS\NotificationServerWS\obj\Release\netcoreapp3.1\NotificationServerWS.csproj.CopyComplete

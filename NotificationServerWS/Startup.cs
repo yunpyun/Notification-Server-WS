@@ -10,9 +10,21 @@ using System.Net.WebSockets;
 using System.Collections.Generic;
 using System.Threading;
 using System.Text;
+using System.IO;
+using Newtonsoft.Json;
 
 namespace NotificationServerWS
 {
+    public class NotificationItem
+    {
+        public string urlws;
+        public string callid;
+        public string cmd;
+        public string ext;
+        public string phone;
+        public string type;
+    }
+
     public class Startup
     {
         // список всех клиентов
@@ -38,7 +50,25 @@ namespace NotificationServerWS
             app.UseWebSockets(wsOptions);
             app.Use(async (context, next) =>
             {
-                // принять запрос только по пути /send
+                // принять http-запрос
+                if (context.Request.Path == "/httpsend")
+                {
+                    //await context.Response.WriteAsync("http response");
+                    string urlWS = "";
+                    string inputJSON = "";
+                    using (StreamReader stream = new StreamReader(context.Request.Body))
+                    {
+                        inputJSON = await stream.ReadToEndAsync();
+                    }
+                    NotificationItem item = JsonConvert.DeserializeObject<NotificationItem>(inputJSON);
+                    urlWS = item.urlws;
+
+                    //await context.Response.WriteAsync(urlWS);
+                    using var ws = new ClientWebSocket();
+                    await ws.ConnectAsync(new Uri(urlWS), CancellationToken.None);
+                    await ws.SendAsync(new ArraySegment<byte>(Encoding.UTF8.GetBytes($"{inputJSON}")), WebSocketMessageType.Text, true, System.Threading.CancellationToken.None);
+                }
+                // принять запрос по пути /send
                 if (context.Request.Path == "/send")
                 {
                     // если запрос является запросом веб сокета
