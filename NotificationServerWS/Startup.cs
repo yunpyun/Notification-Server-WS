@@ -23,6 +23,10 @@ namespace NotificationServerWS
         public string ext;
         public string phone;
         public string type;
+        public string duration;
+        public string link;
+        public string status;
+        public string clientFio;
     }
 
     public class Startup
@@ -53,20 +57,29 @@ namespace NotificationServerWS
                 // принять http-запрос
                 if (context.Request.Path == "/httpsend")
                 {
-                    //await context.Response.WriteAsync("http response");
+                    // URL для обращения к WebSocket
                     string urlWS = "";
+                    // входящий JSON
                     string inputJSON = "";
+
+                    // считывание содержимого тела запроса в inputJSON
                     using (StreamReader stream = new StreamReader(context.Request.Body))
                     {
                         inputJSON = await stream.ReadToEndAsync();
                     }
+
+                    // десериализация JSON для получения значения ключа urlws
                     NotificationItem item = JsonConvert.DeserializeObject<NotificationItem>(inputJSON);
+                    // получение значения urlws и запись в переменную
                     urlWS = item.urlws;
 
-                    //await context.Response.WriteAsync(urlWS);
                     using var ws = new ClientWebSocket();
+                    // подключение к WS по переданному в http-запросе URL
                     await ws.ConnectAsync(new Uri(urlWS), CancellationToken.None);
+                    // отправка JSON в WebSocket
                     await ws.SendAsync(new ArraySegment<byte>(Encoding.UTF8.GetBytes($"{inputJSON}")), WebSocketMessageType.Text, true, System.Threading.CancellationToken.None);
+                    // закрытие соединения
+                    await ws.CloseAsync(WebSocketCloseStatus.NormalClosure, "closing after sending", CancellationToken.None);
                 }
                 // принять запрос по пути /send
                 if (context.Request.Path == "/send")
