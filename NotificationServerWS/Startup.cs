@@ -33,6 +33,7 @@ namespace NotificationServerWS
 
     public class Startup
     {
+        // лог
         private readonly ILogger<Startup> _logger;
 
         public IConfiguration Configuration { get; }
@@ -112,7 +113,6 @@ namespace NotificationServerWS
                     // если запрос является запросом веб сокета
                     if (context.WebSockets.IsWebSocketRequest)
                     {
-                        _logger.LogInformation(" Is WebSocket request");
                         using (WebSocket webSocket = await context.WebSockets.AcceptWebSocketAsync())
                         {
                             Clients.Add(webSocket);
@@ -141,24 +141,33 @@ namespace NotificationServerWS
                 {
                     // сообщение от клиента
                     string msg = Encoding.UTF8.GetString(new ArraySegment<byte>(buffer, 0, result.Count));
+                    _logger.LogInformation(" New msg: " + msg);
 
                     foreach (WebSocket client in Clients)
                     {
+                        _logger.LogInformation(" client.State: " + client.State); 
                         // передаем сообщение от сервера всем клиентам
                         await client.SendAsync(new ArraySegment<byte>(Encoding.UTF8.GetBytes($"{msg}")), result.MessageType, result.EndOfMessage, System.Threading.CancellationToken.None);
+                        _logger.LogInformation(" SendAsync");
                     }
 
                     // ожидание другого сообщения от клиента
                     result = await webSocket.ReceiveAsync(new ArraySegment<byte>(buffer), System.Threading.CancellationToken.None);
+                    _logger.LogInformation(" ReceiveAsync");
                 }
                 catch (Exception ex)
                 {
                     // если в блоке try упало исключение (в основном ловим WebSocketException), то выводим Лог и закрываем вебсокет со статусом "1000"
                     _logger.LogError("Error websocket: " + ex.ToString());
+                    // пауза на 15 секунд, чтобы в случае сбоя сети, соединение восстановилось за это время и запрос был после восстановления
+                    int milliseconds = 15000;
+                    Thread.Sleep(milliseconds);
                     await webSocket.CloseAsync(WebSocketCloseStatus.NormalClosure, string.Empty, System.Threading.CancellationToken.None);
+                    _logger.LogInformation(" CloseAsyncExeption");
                 }
             }
             await webSocket.CloseAsync(result.CloseStatus.Value, result.CloseStatusDescription, System.Threading.CancellationToken.None);
+            _logger.LogInformation(" CloseAsync closeStatus: " + result.CloseStatus.Value);
             Clients.Remove(webSocket);
         }
     }
