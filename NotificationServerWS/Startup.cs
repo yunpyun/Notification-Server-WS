@@ -14,6 +14,7 @@ using System.IO;
 using Newtonsoft.Json;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Configuration;
+using System.Linq;
 
 namespace NotificationServerWS
 {
@@ -52,7 +53,7 @@ namespace NotificationServerWS
         }
 
         // список всех клиентов
-        private static readonly List<WebSocket> Clients = new List<WebSocket>();
+        private static List<WebSocket> Clients = new List<WebSocket>();
 
         // This method gets called by the runtime. Use this method to add services to the container.
         // For more information on how to configure your application, visit https://go.microsoft.com/fwlink/?LinkID=398940
@@ -79,7 +80,7 @@ namespace NotificationServerWS
                 // принять http-запрос
                 if (context.Request.Path == "/httpsend")
                 {
-                    _logger.LogInformation(" /httpsend called");
+                    _logger.LogInformation("/httpsend called");
                     // URL для обращения к WebSocket
                     string urlWS = "";
                     // входящий JSON
@@ -96,20 +97,23 @@ namespace NotificationServerWS
                     // получение значения urlws и запись в переменную
                     urlWS = item.urlws;
 
-                    _logger.LogInformation(" Item callid: " + item.callid);
+                    _logger.LogInformation("Item callid: " + item.callid);
 
                     using var ws = new ClientWebSocket();
                     // подключение к WS по переданному в http-запросе URL
                     await ws.ConnectAsync(new Uri(urlWS), CancellationToken.None);
+                    _logger.LogInformation("HTTP ConnectAsync called");
                     // отправка JSON в WebSocket
                     await ws.SendAsync(new ArraySegment<byte>(Encoding.UTF8.GetBytes($"{inputJSON}")), WebSocketMessageType.Text, true, System.Threading.CancellationToken.None);
+                    _logger.LogInformation("HTTP SendAsync called");
                     // закрытие соединения
                     await ws.CloseAsync(WebSocketCloseStatus.NormalClosure, "closing after sending", CancellationToken.None);
+                    _logger.LogInformation("HTTP CloseAsync called");
                 }
                 // принять запрос по пути /send
                 if (context.Request.Path == "/send")
                 {
-                    _logger.LogInformation(" /send called");
+                    _logger.LogInformation("/send called");
                     // если запрос является запросом веб сокета
                     if (context.WebSockets.IsWebSocketRequest)
                     {
@@ -129,46 +133,59 @@ namespace NotificationServerWS
 
         private async Task Send(HttpContext context, WebSocket webSocket)
         {
-            _logger.LogInformation(" Send websocket called");
+            _logger.LogInformation("Send websocket called");
             var buffer = new byte[1024 * 4];
 
             // получаем данные
             WebSocketReceiveResult result = await webSocket.ReceiveAsync(new ArraySegment<byte>(buffer), System.Threading.CancellationToken.None);
 
-            while (!result.CloseStatus.HasValue)
+            try
             {
-                try
+                while (!result.CloseStatus.HasValue)
                 {
                     // сообщение от клиента
                     string msg = Encoding.UTF8.GetString(new ArraySegment<byte>(buffer, 0, result.Count));
-                    _logger.LogInformation(" New msg: " + msg);
+                    _logger.LogInformation("New msg: " + msg);
+
+                    List<WebSocket> ErrorClients = new List<WebSocket>();
 
                     foreach (WebSocket client in Clients)
                     {
-                        _logger.LogInformation(" client.State: " + client.State); 
+                        _logger.LogInformation("Current client.State: " + client.State);
                         // передаем сообщение от сервера всем клиентам
-                        await client.SendAsync(new ArraySegment<byte>(Encoding.UTF8.GetBytes($"{msg}")), result.MessageType, result.EndOfMessage, System.Threading.CancellationToken.None);
-                        _logger.LogInformation(" SendAsync");
+                        try
+                        {
+                            await client.SendAsync(new ArraySegment<byte>(Encoding.UTF8.GetBytes($"{msg}")), result.MessageType, result.EndOfMessage, System.Threading.CancellationToken.None);
+                            _logger.LogInformation("SendAsync called");
+                        }
+                        catch (Exception exep)
+                        {
+                            ErrorClients.Add(client);
+                            _logger.LogError("Current error client.State: " + client.State);
+                            _logger.LogError("Error websocket SendAsync: " + exep.ToString());
+                        }
                     }
+                    Clients = Clients.Except(ErrorClients).ToList<WebSocket>();
 
                     // ожидание другого сообщения от клиента
+
                     result = await webSocket.ReceiveAsync(new ArraySegment<byte>(buffer), System.Threading.CancellationToken.None);
-                    _logger.LogInformation(" ReceiveAsync");
+                    _logger.LogInformation("ReceiveAsync called");
                 }
-                catch (Exception ex)
+                await webSocket.CloseAsync(result.CloseStatus.Value, result.CloseStatusDescription, System.Threading.CancellationToken.None);
+                _logger.LogInformation("CloseAsync called with closeStatus: " + result.CloseStatus.Value);
+                Clients.Remove(webSocket);
+            }
+            catch (Exception ex)
+            {
+                // если в блоке try упало исключение (в основном ловим WebSocketException), то выводим Лог и закрываем вебсокет со статусом "1000"
+                _logger.LogError("Error websocket: " + ex.ToString());
+                if (webSocket != null)
                 {
-                    // если в блоке try упало исключение (в основном ловим WebSocketException), то выводим Лог и закрываем вебсокет со статусом "1000"
-                    _logger.LogError("Error websocket: " + ex.ToString());
-                    // пауза на 15 секунд, чтобы в случае сбоя сети, соединение восстановилось за это время и запрос был после восстановления
-                    int milliseconds = 15000;
-                    Thread.Sleep(milliseconds);
-                    await webSocket.CloseAsync(WebSocketCloseStatus.NormalClosure, string.Empty, System.Threading.CancellationToken.None);
-                    _logger.LogInformation(" CloseAsyncExeption");
+                    _logger.LogInformation("Current webSocket.State: " + webSocket.State);
+                    Clients.Remove(webSocket);
                 }
             }
-            await webSocket.CloseAsync(result.CloseStatus.Value, result.CloseStatusDescription, System.Threading.CancellationToken.None);
-            _logger.LogInformation(" CloseAsync closeStatus: " + result.CloseStatus.Value);
-            Clients.Remove(webSocket);
         }
     }
 }
